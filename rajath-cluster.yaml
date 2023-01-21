@@ -1,0 +1,82 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+    name: ozone
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+    name: ozone-service-account
+    namespace: ozone
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+    name: ozone-cluster-role-binding
+roleRef:
+    apiGroup: rbac.authorization.k8s.io
+    kind: ClusterRole
+    name: cluster-admin
+subjects:
+    - kind: ServiceAccount
+      name: ozone-service-account
+      namespace: ozone
+
+---
+apiVersion: v1
+data:
+    .dockerconfigjson: eyJhdXRocyI6IHsiYXNpYS5nY3IuaW8iOiB7ImF1dGgiOiAiIn19fQo=
+kind: Secret
+metadata:
+    name: ozone-registry-secret
+    namespace: ozone
+type: kubernetes.io/dockerconfigjson
+
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+    annotations:
+        sidecar.istio.io/inject: "false"
+    generateName: ozone-external-installer-
+    namespace: ozone
+spec:
+    template:
+        metadata:
+            annotations:
+                sidecar.istio.io/inject: "false"
+        spec:
+            containers:
+                - command:
+                    - /bin/app-agent-installer
+                  env:
+                    - name: ACCOUNT_ID
+                      value: 63c77b62959f97e20300ad50
+                    - name: REQUEST_URL
+                      value: https://beta.ozonecloud.ai/api/agent/installer
+                    - name: TOKEN
+                      value: uWMGU07jmU2zN3934FQ7ml7DQfBb2lQ1QHTW2pLFzEHZjkBIIh9PKDBIaRZOL8V3zMNWaXtRkVfaANXsctF4YqbPfXJP0IIdJko37vn3YeiBMCg2OOQniLefsk7NHMs8
+                    - name: CLUSTER_NAME
+                      value: rajath-cluster
+                    - name: CLUSTER_TYPE
+                      value: "4"
+                    - name: WORKSPACE_ID
+                      value: 637c60b5ffd6a724488588c3
+                    - name: PRIVATE
+                      value: "false"
+                  image: registry.ozone.one/ozone-public-registry/ozoneprod/app-agent-installer:master-e11a5a5
+                  name: ozone-external-installer
+                  resources:
+                    limits:
+                        cpu: 100m
+                        memory: 300Mi
+                    requests:
+                        cpu: 10m
+                        memory: 50Mi
+            imagePullSecrets:
+                - name: ozone-registry-secret
+            restartPolicy: Never
+            serviceAccountName: ozone-service-account
+    ttlSecondsAfterFinished: 300
